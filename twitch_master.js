@@ -14,9 +14,9 @@ crypto = require('crypto'),
 
 _ = require("underscore"),
 
-buttonHandler = require('./lib/buttonHandler'),
+//buttonHandler = require('./lib/buttonHandler'),
 
-//pub = require('./lib/comm').sender(),
+pub = require('./lib/comm').sender(),
 config = require('./config.json'),
 
 ops = require('./ops.json'),
@@ -63,7 +63,7 @@ twitch_group = new irc.Client('192.16.64.180', config.nick, {
 });
 
 //var e = new espruino();
-var bt = new buttonHandler();
+//var bt = new buttonHandler();
 
 /* misc */
 var voting_command = null,
@@ -736,17 +736,14 @@ function processCommand()
 				// normal command
 				handle_filter(selected_command);
 
-				console.log('Sending to qemu: ' + exports.map[selected_command]);
+				console.log('Sending to arduino: ' + exports.map[selected_command]);
 				//pub.send(['qemu-manager', exports.map[selected_command]]);
 
-				bt.sendKey(selected_command);
-				 //setTimeout(function(){
-//e.sendKey(selected_command);
- // },250);
+				pub.send(['client_arduino', exports.map[selected_command]]);
 
 
 				if (selected_command.indexOf('_double') != -1) {
-					console.log('Sending to qemu: ' + exports.map[selected_command]);
+					//console.log('Sending to qemu: ' + exports.map[selected_command]);
 					//pub.send(['qemu-manager', exports.map[selected_command]]);
 				}
 
