@@ -2,14 +2,14 @@
 [![Version](https://img.shields.io/badge/version-0.0.8-green.svg)](VERSION.md)
 [![License](https://img.shields.io/badge/license-GNU%20GPL%20v3%2B-blue.svg)](LICENSE)
 
-[twitchintheshell.com](http://twitchintheshell.com/) | [@twitchshell](https://twitter.com/twitchshell) | [changelog](VERSION.md)
+[twitchintheshell.com](http://twitchplaystamagotchi.com/) | [@twitchshell](https://twitter.com/tamagotwitch) | [changelog](VERSION.md)
 
-The code is currently running on our [stream](http://www.twitch.tv/twitchinstallsarchlinux), feel free to drop by and say hi!
+The code is currently running on our [stream](http://www.twitch.tv/tamagotwitch), feel free to drop by and say hi!
 
 
 ## About
 
-This is the user interaction backbone of our back-end. It is built to take inputs from a Twitch channel's chat, and send them to a QEMU virtual machine (if they are appropriate, see map.json for that).
+This is the user interaction backbone of our back-end. It is built to take inputs from a Twitch channel's chat, and send them to an Arduino via serial port (if they are appropriate, see map.json for that).
 
 
 Specifically, it is accomplished with a multiprocess system, comprised of 5 functional portions:
@@ -41,13 +41,6 @@ If you're running this on a Mac, npm will not be able to install zmq without fir
 and then:
 
 `brew link icu4c --force`
-
-
-## Contribution
-
-Please open a pull request as/when you see fit. We will review it and then act accordingly.
-**If you want to contribute many lines of code at once**, and more importantly, if they are addressing **crucial parts of the code** such as **input parsing** please open up an issue first for discussion. Do not proceed into writing what you got in mind because it might get turned down.
-Also, stick to the coding style you see.
 
 
 ## License
