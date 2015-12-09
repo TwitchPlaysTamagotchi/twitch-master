@@ -1,7 +1,7 @@
 /* =======================================
- * ========= global variables ============
- * =======================================
- */
+* ========= global variables ============
+* =======================================
+*/
 
 /* exports */
 var exports = module.exports = {};
@@ -9,118 +9,115 @@ exports.map = {}; // json command mapping
 
 /* requires */
 var fs  = require('fs'),
-	irc = require('irc'),
-	crypto = require('crypto'),
+irc = require('irc'),
+crypto = require('crypto'),
 
-	pub = require('./lib/comm').sender(),
-	config = require('./config.json'),
+_ = require("underscore"),
 
-	ops = require('./ops.json'),
-	blacklist = require('./blacklist.json'),
-	filters = require('./filters.json');
+buttonHandler = require('./lib/buttonHandler'),
+espruino = require('./lib/espruino'),
+
+//pub = require('./lib/comm').sender(),
+config = require('./config.json'),
+
+ops = require('./ops.json'),
+blacklist = require('./blacklist.json'),
+filters = require('./filters.json');
 
 /* settings */
-var command_interval = 15,
-	grp_chan = '#_ektor5_1446326140015',
-	modes = [
-		'anarchy',
-		'democracy',
-		'demorchy',
-		'monarchy',
-		'chaos'
-	],
-	mode_can_change = true,
-	command_mode = 'democracy';
-	chaos_quotes = [
-		'Should I be afraid of you guys?',
-		'I will survive this.',
-		'The people who have really made history are the martyrs.',
-		'Ordinary morality is only for ordinary people.',
-		'Intolerance is evidence of impotence.',
-		'I can imagine myself on my death-bed, spent utterly with lust to touch the next world, like a boy asking for his first kiss from a woman.',
-		'Science is always discovering odd scraps of magical wisdom and making a tremendous fuss about its cleverness.'
-	],
+var command_interval = 3,
+grp_chan = '#_ektor5_1446326140015',
+modes = [
+	'democracy'
+],
+mode_can_change = false,
+command_mode = 'democracy';
 
-	reload_cd = 23000, // for ops, blacklist and filters
-	max_filter_len = 50,
 
-	perc_req =  {
-		"system_reset": 80,
-		"ctrl-c": 60
-	}, // ^ sets the required percentages to be fulfilled for yes
+var reload_cd = 23000, // for ops, blacklist and filters
+max_filter_len = 50,
 
-	mouse_range = {
-		min: -3000,
-		max:  3000
-	}; /* jshint ignore:line */
-	// ^ so no undefined qemu behaviour occurs, e.g. integer overflow
+perc_req =  {
+	"system_reset": 80,
+	"ctrl-c": 60
+}, // ^ sets the required percentages to be fulfilled for yes
+
+mouse_range = {
+	min: -3000,
+	max:  3000
+}; /* jshint ignore:line */
+// ^ so no undefined qemu behaviour occurs, e.g. integer overflow
 
 /* utility */
-var twitch_chat = new irc.Client('irc.twitch.tv', config.nick, {
+var twitch_chat = new irc.Client('badbauds.io', config.nick, {
 	channels: ['#' + config.nick],
 	userName: config.nick,
+	port: 9000,
 	password: config.password,
 	autoConnect: false
 }),
-	twitch_group = new irc.Client('192.16.64.180', config.nick, {
-		channels: [grp_chan],
-		userName: config.nick,
-		password: config.password,
-		autoConnect: false
-	});
+twitch_group = new irc.Client('192.16.64.180', config.nick, {
+	channels: [grp_chan],
+	userName: config.nick,
+	password: config.password,
+	autoConnect: false
+});
+
+//var e = new espruino();
+var bt = new buttonHandler();
 
 /* misc */
 var voting_command = null,
-	kappa = 'twitchintheshell.com/kappa.html',
-	voting_mode = null,
-	mouse_vote = null,
-	mouse_x = 0,
-	mouse_y = 0,
-	mouse_z = 0,
-	last_exec_cmd = '',
-	str_modes = '',
-	filter = '',
-	last_tally = {}; // keeps users with their responses
+kappa = 'twitchintheshell.com/kappa.html',
+voting_mode = null,
+mouse_vote = null,
+mouse_x = 0,
+mouse_y = 0,
+mouse_z = 0,
+last_exec_cmd = '',
+str_modes = '',
+filter = '',
+last_tally = {}; // keeps users with their responses
 
 /* game related stuff */
 var monarch = null,
-	monarch_cmd = null,
-	influence = 100,
-	idle_penalty = 10,
+monarch_cmd = null,
+influence = 100,
+idle_penalty = 10,
 
-	supports = 0,
-	support_value = 20,
-	max_supports = 5,
+supports = 0,
+support_value = 20,
+max_supports = 5,
 
-	rebels = 0,
-	rebel_value = 10,
-	max_rebels = 10; // because uh oh
+rebels = 0,
+rebel_value = 10,
+max_rebels = 10; // because uh oh
 
 
 
 /* =======================================
- * ============= functions ===============
- * =======================================
- */
+* ============= functions ===============
+* =======================================
+*/
 
 /* loads the blacklist */
 function load_blacklist()
 {
-        blacklist = JSON.parse(fs.readFileSync('./blacklist.json', 'utf8'));
+	blacklist = JSON.parse(fs.readFileSync('./blacklist.json', 'utf8'));
 }
 
 
 /* loads the filters */
 function load_filters()
 {
-        filters = JSON.parse(fs.readFileSync('./filters.json', 'utf8'));
+	filters = JSON.parse(fs.readFileSync('./filters.json', 'utf8'));
 }
 
 
 /* loads the ops */
 function load_ops()
 {
-        ops = JSON.parse(fs.readFileSync('./ops.json', 'utf8'));
+	ops = JSON.parse(fs.readFileSync('./ops.json', 'utf8'));
 }
 
 
@@ -136,10 +133,10 @@ function randomInt (low, high)
 /* reports status to the console, client-status and/or twitch chat */
 function reportStatus(message, twitch)
 {
-	pub.send(['client-status', message]);
+	//pub.send(['client-status', message]);
 
 	if (twitch_chat && config && twitch)
-		twitch_chat.say('#' + config.nick, message);
+	twitch_chat.say('#' + config.nick, message);
 
 	console.log(message);
 }
@@ -151,7 +148,7 @@ function handle_filter(cmd)
 	filter += cmd;
 
 	if (filter.length > max_filter_len)
-		filter = filter.substring(1, filter.length);
+	filter = filter.substring(1, filter.length);
 
 	for (var i in filters) {
 		if (filter.indexOf(filters[i]) != -1) {
@@ -160,16 +157,16 @@ function handle_filter(cmd)
 			reportStatus('Someone is a bad boy! Taking counter-measures.', true);
 
 			for (y = 0; y < filters[i].length; y++)
-				pub.send(['qemu-manager', exports.map.backspace]);
+			//pub.send(['qemu-manager', exports.map.backspace]);
 
 			filter = filter.substring(0, filter.length - filters[i].length);
 
-			pub.send(['qemu-manager', exports.map['ctrl-a']]);
+			//pub.send(['qemu-manager', exports.map['ctrl-a']]);
 
 			for (y = 0; y < kappa.length; y++)
-				pub.send(['qemu-manager', exports.map[kappa[y]]]);
+			//pub.send(['qemu-manager', exports.map[kappa[y]]]);
 
-			pub.send(['qemu-manager', exports.map.enter]);
+			//pub.send(['qemu-manager', exports.map.enter]);
 
 			break;
 		}
@@ -194,15 +191,15 @@ exports.map_load = function()
 
 
 /*
- * see http://stackoverflow.com/a/13794386
- * modified appropriately to return the array's index
- */
+* see http://stackoverflow.com/a/13794386
+* modified appropriately to return the array's index
+*/
 function max_int_val_array(array)
 {
 	var current = -Infinity,
-		i = 0,
-		length = array.length,
-		result;
+	i = 0,
+	length = array.length,
+	result;
 
 	for (; i != length; ++i) {
 		if (array[i] > current) {
@@ -223,8 +220,8 @@ function democracy_related()
 	if (command_mode == 'demorchy') {
 		/* tampering the total messages array (command_count) before it undergoes analysis */
 		var demorchy_pool = Math.round(Object.keys(last_tally).length/3),
-			users_voted = [],
-			rand_int;
+		users_voted = [],
+		rand_int;
 
 		while (users_voted.length < demorchy_pool) {
 			for (var user in last_tally) {
@@ -232,7 +229,7 @@ function democracy_related()
 
 				if ((rand_int % 2) === 0 && users_voted.indexOf(user) == -1) {
 					if (command_count[last_tally[user]] === null)
-						command_count[last_tally[user]] = 0;
+					command_count[last_tally[user]] = 0;
 
 					command_count[last_tally[user]] += 1;
 					users_voted.push(user);
@@ -240,22 +237,25 @@ function democracy_related()
 			}
 		}
 	} else {
+
 		for (var usr in last_tally) {
-			if (command_count[last_tally[usr]] === null)
+			if (_.isUndefined(command_count[last_tally[usr]]) || command_count[last_tally[usr]] === null){
 				command_count[last_tally[usr]] = 0;
+			}
 
 			command_count[last_tally[usr]] += 1;
+
 		}
 	}
 
 
 	if (Object.keys(command_count).length === 0)
-		return null;
+	return null;
 
 	var counts = '',
-		percentage,
-		percentages = [],
-		commands = [];
+	percentage,
+	percentages = [],
+	commands = [];
 
 	for (var command in command_count) {
 		percentage = Math.round(command_count[command]/Object.keys(last_tally).length * 100, 2);
@@ -268,14 +268,14 @@ function democracy_related()
 	counts = counts.substring(0, counts.length - 2);
 
 	var winner_index = max_int_val_array(percentages),
-		winner = commands[winner_index];
+	winner = commands[winner_index];
 
 	if (winner === 'yes') {
 		for (var cmd in perc_req) {
 			if (last_exec_cmd === cmd) {
 				if (percentages[winner_index] < perc_req[cmd]) {
 					reportStatus('Not enough percentage for yes (needs at least '+
-						perc_req[cmd] + ').', true);
+					perc_req[cmd] + ').', true);
 					reportStatus('VOTES: ' + counts, true);
 					winner = null;
 				}
@@ -301,10 +301,10 @@ function democracy_related()
 function anarchy()
 {
 	if (Object.keys(last_tally).length === 0)
-		return null;
+	return null;
 
 	var users = [],
-		commands = [];
+	commands = [];
 
 	/* yes we actually need to do this */
 	for (var user in last_tally) {
@@ -326,7 +326,7 @@ function anarchy()
 		commands[i] = commands[j];
 
 		users[j] = usr_tmp;
-		commands[j] = cmd_tmp; 
+		commands[j] = cmd_tmp;
 	}
 
 	reportStatus('Winning command [' + users[0] + ']: ' + commands[0], true);
@@ -342,10 +342,10 @@ function anarchy()
 function elect_monarch(users)
 {
 	if (users.length === 0)
-		return 'MONARCH_NENOUGH';
+	return 'MONARCH_NENOUGH';
 
 	if (users.length == 1)
-		return users[0];
+	return users[0];
 
 	var i, j, usr_tmp;
 
@@ -354,7 +354,7 @@ function elect_monarch(users)
 
 		usr_tmp = users[i];
 		users[i] = users[j];
-		users[j] = usr_tmp; 
+		users[j] = usr_tmp;
 	}
 
 	return users[0];
@@ -365,8 +365,8 @@ function elect_monarch(users)
 function monarchy()
 {
 	var users = [],
-		commands = [],
-		users_length = 1;
+	commands = [],
+	users_length = 1;
 
 	/* yes we actually need to do this */
 	for (var user in last_tally) {
@@ -375,24 +375,24 @@ function monarchy()
 	}
 
 	if (users.length !== 0)
-		users_length = users.length;
+	users_length = users.length;
 
 	if (monarch !== null) {
 		for (var i in commands) {
 			switch (commands[i]) {
-			case 'rebel':
+				case 'rebel':
 				if (rebels < max_rebels)
-					influence -= rebel_value;
+				influence -= rebel_value;
 				rebels += 1;
 				break;
-			case 'support':
+				case 'support':
 				if (users[i] != monarch) {
 					if (supports < max_supports)
-						influence += support_value;
+					influence += support_value;
 					supports += 1;
 				}
 				break;
-			default:
+				default:
 				break;
 			}
 		}
@@ -447,7 +447,7 @@ function chaos()
 			str_modes = '[';
 
 			for (var i = 0; i < modes.length; i++)
-				str_modes += modes[i] + ',';
+			str_modes += modes[i] + ',';
 
 			str_modes = str_modes.substring(0, str_modes.length - 1) + ']';
 			reportStatus('Voting to change mode. Available modes: ' + str_modes, true);
@@ -459,14 +459,14 @@ function chaos()
 		}
 
 		handle_filter(last_tally[user]);
-		
+
 		console.log('Sending to qemu: ' + exports.map[last_tally[user]]);
-		pub.send(['qemu-manager', exports.map[last_tally[user]]]);
+		//pub.send(['qemu-manager', exports.map[last_tally[user]]]);
 
 
 		if (last_tally[user].indexOf('_double') != -1) {
 			console.log('Sending to qemu: ' + exports.map[last_tally[user]]);
-			pub.send(['qemu-manager', exports.map[last_tally[user]]]);
+			//pub.send(['qemu-manager', exports.map[last_tally[user]]]);
 		}
 
 		last_8_execs.push(last_tally[user]);
@@ -475,7 +475,7 @@ function chaos()
 			var out = '[';
 
 			for (var y = 0; y < last_8_execs.length; y++)
-				out += last_8_execs[y] + ',';
+			out += last_8_execs[y] + ',';
 
 			out = out.substring(0, out.length - 1) + ']';
 			last_8_execs = [];
@@ -497,48 +497,48 @@ function mouse_movement(command)
 		reportStatus('Invalid issued command [' + command + '] for mouse movement.', true);
 	} else {
 		var qemu_cmd = 'mouse_move ',
-			int_cmd = Math.round(parseInt(command));
+		int_cmd = Math.round(parseInt(command));
 
 		switch (mouse_vote) {
-		case 'x':
+			case 'x':
 			qemu_cmd += int_cmd + ' 0';
 			mouse_x += int_cmd;
 
 			if (mouse_x < mouse_range.min)
-				mouse_x = mouse_range.min;
+			mouse_x = mouse_range.min;
 			else if (mouse_x > mouse_range.max)
-				mouse_x = mouse_range.max;
+			mouse_x = mouse_range.max;
 
 			break;
-		case 'y':
+			case 'y':
 			qemu_cmd += '0 ' + int_cmd;
 			mouse_y += int_cmd;
 
 			if (mouse_y < mouse_range.min)
-				mouse_y = mouse_range.min;
+			mouse_y = mouse_range.min;
 			else if (mouse_y > mouse_range.max)
-				mouse_y = mouse_range.max;
+			mouse_y = mouse_range.max;
 
 			break;
-		case 'z':
+			case 'z':
 			qemu_cmd += '0 0 ' + int_cmd;
 			mouse_z += int_cmd;
 
 			if (mouse_z < mouse_range.min)
-				mouse_z = mouse_range.min;
+			mouse_z = mouse_range.min;
 			else if (mouse_z > mouse_range.max)
-				mouse_z = mouse_range.max;
+			mouse_z = mouse_range.max;
 
 			break;
-		default:
+			default:
 			break;
 		}
 
 		reportStatus('New mouse coordinates: [dx: ' + mouse_x + '], [dy: ' + mouse_y +
-			'], [dz: ' + mouse_z + '].', true);
+		'], [dz: ' + mouse_z + '].', true);
 
 		console.log('Sending to qemu: ' + qemu_cmd);
-		pub.send(['qemu-manager', qemu_cmd]);
+		//pub.send(['qemu-manager', qemu_cmd]);
 
 	}
 
@@ -562,7 +562,7 @@ function voting_cmd_handle(selected_command)
 		// send
 		var command_qemu = exports.map[voting_command].replace(/^VOTE /, '');
 		console.log('Sending to qemu: ' + command_qemu);
-		pub.send(['qemu-manager', command_qemu]);
+		//pub.send(['qemu-manager', command_qemu]);
 	} else {
 		reportStatus('Vote failed: ' + voting_command, true);
 	}
@@ -576,7 +576,7 @@ function voting_mode_handle(selected_command)
 {
 	if (command_mode != selected_command) {
 		if (command_mode == 'monarchy')
-			monarch = null;
+		monarch = null;
 
 		command_mode = selected_command;
 		reportStatus('Mode changed successfully to [' + command_mode + '].', true);
@@ -591,38 +591,38 @@ function voting_mode_handle(selected_command)
 /* recursive command processing backbone */
 function processCommand()
 {
-	command_interval = randomInt(8,20);
+	//command_interval = randomInt(8,20);
 	var next_ms = command_interval * 1000;
 
 	if (command_mode == 'anarchy' && !voting_command) {
 		// smudges timer by random amounts. last # is smudge factor
 		next_ms += Math.round((Math.random() - 0.5) * 2 * next_ms * 0.3);
 	}
-  
+
 	setTimeout(processCommand, next_ms);
-  
+
 	var selected_command;
 
 	if (voting_command !== null || mouse_vote !== null || voting_mode !== null) {
 		selected_command = democracy_related();
 	} else {
 		switch (command_mode) {
-		case 'democracy':
+			case 'democracy':
 			selected_command = democracy_related();
 			break;
-		case 'demorchy':
+			case 'demorchy':
 			selected_command = democracy_related();
 			break;
-		case 'anarchy':
+			case 'anarchy':
 			selected_command = anarchy();
 			break;
-		case 'monarchy':
+			case 'monarchy':
 			selected_command = monarchy();
 			break;
-		case 'chaos':
+			case 'chaos':
 			selected_command = chaos();
 			break;
-		default:
+			default:
 			break;
 		}
 	}
@@ -630,7 +630,7 @@ function processCommand()
 
 	if (command_mode == 'chaos') {
 		if (selected_command === null)
-			reportStatus(chaos_quotes[randomInt(0, chaos_quotes.length - 1)], true);
+		reportStatus(chaos_quotes[randomInt(0, chaos_quotes.length - 1)], true);
 
 		else if (selected_command != 'CHAOS_VOTING') {
 			if (voting_command !== null) {
@@ -646,23 +646,23 @@ function processCommand()
 			voting_mode_handle(selected_command);
 		} else {
 			switch (selected_command) {
-			case 'MONARCH_NENOUGH':
+				case 'MONARCH_NENOUGH':
 				reportStatus('Not enough users to pick a monarch from.', true);
 				monarch = null;
 				break;
-			case 'MONARCH_REELECTION':
+				case 'MONARCH_REELECTION':
 				reportStatus('[' + monarch + '] has been overthrown. Electing a new monarch.. Type [elect_me].', true);
 				monarch = null;
 				break;
-			case 'MONARCH_IDLE':
+				case 'MONARCH_IDLE':
 				reportStatus('The monarch [' + monarch + '] is idle and thus has suffered a penalty of ' +
-					idle_penalty/2 + '. Current influence: ' + influence, true);
+				idle_penalty/2 + '. Current influence: ' + influence, true);
 				break;
-			case 'MONARCH_NEW':
+				case 'MONARCH_NEW':
 				reportStatus('A new monarch has been elected [' + monarch + ']. Current influence: ' +
-					influence, true);
+				influence, true);
 				break;
-			case 'MONARCH_CMD':
+				case 'MONARCH_CMD':
 				if (monarch_cmd.indexOf('mouse_move') != -1) {
 					mouse_vote = selected_command[selected_command.length -1];
 					reportStatus('Monarch wants to move the mouse [d' + mouse_vote + ']. Integers only.', true);
@@ -679,20 +679,21 @@ function processCommand()
 					reportStatus('Monarch wants to change the mode. Vote for it. Available modes: ' + str_modes, true);
 				} else {
 					reportStatus('The monarch [' + monarch + '] has casted [' + monarch_cmd + ']. ' +
-						'Current influence: ' + influence, true);
+					'Current influence: ' + influence, true);
 
 					handle_filter(monarch_cmd);
 
 					console.log('Sending to qemu: ' + exports.map[monarch_cmd]);
-					pub.send(['qemu-manager', exports.map[monarch_cmd]]);
+					//pub.send(['qemu-manager', exports.map[monarch_cmd]]);
+
 
 					if (monarch_cmd.indexOf('_double') != -1) {
 						console.log('Sending to qemu: ' + exports.map[monarch_cmd]);
-						pub.send(['qemu-manager', exports.map[monarch_cmd]]);
+						//pub.send(['qemu-manager', exports.map[monarch_cmd]]);
 					}
 				}
 				break;
-			default:
+				default:
 				reportStatus('Something is wrong, and the dev should know this.', true);
 				break;
 			}
@@ -737,11 +738,17 @@ function processCommand()
 				handle_filter(selected_command);
 
 				console.log('Sending to qemu: ' + exports.map[selected_command]);
-				pub.send(['qemu-manager', exports.map[selected_command]]);
+				//pub.send(['qemu-manager', exports.map[selected_command]]);
+
+				bt.sendKey(selected_command);
+				 //setTimeout(function(){
+//e.sendKey(selected_command);
+ // },250);
+
 
 				if (selected_command.indexOf('_double') != -1) {
 					console.log('Sending to qemu: ' + exports.map[selected_command]);
-					pub.send(['qemu-manager', exports.map[selected_command]]);
+					//pub.send(['qemu-manager', exports.map[selected_command]]);
 				}
 
 			}
@@ -758,9 +765,9 @@ function processCommand()
 
 
 /* =======================================
- * =============== main ==================
- * =======================================
- */
+* =============== main ==================
+* =======================================
+*/
 function main()
 {
 	process.stdin.resume();
@@ -769,48 +776,48 @@ function main()
 		var args = data.toString().split(' ');
 
 		switch(args[0].trim()) {
-		case 'map_load':
+			case 'map_load':
 			exports.map_load();
 			break;
-		case 'reset_voting':
+			case 'reset_voting':
 			// for when this inevitably breaks
 			voting_command = null;
 			break;
-		case 'mode_can_change':
+			case 'mode_can_change':
 			mode_can_change = true;
 			break;
-		case 'mode_cant_change':
+			case 'mode_cant_change':
 			mode_can_change = false;
 			break;
 
-		case 'anarchy':
+			case 'anarchy':
 			command_mode = 'anarchy';
 			last_tally = {};
 			reportStatus('ANARCHY is now in effect!', true);
 			break;
-		case 'democracy':
+			case 'democracy':
 			command_mode = 'democracy';
 			last_tally = {};
 			reportStatus('DEMOCRACY is now in effect!', true);
 			break;
-		case 'demorchy':
+			case 'demorchy':
 			command_mode = 'demorchy';
 			last_tally = {};
 			reportStatus('DEMORCHY is now in effect!', true);
 			break;
-		case 'monarchy':
+			case 'monarchy':
 			command_mode = 'monarchy';
 			last_tally = {};
 			reportStatus('MONARCHY is now in effect!', true);
 			break;
-		case 'chaos':
+			case 'chaos':
 			command_mode = 'chaos';
 			last_tally = {};
 			reportStatus('CHAOS. RUN.', true);
 			break;
 
 
-		case 'set_interval':
+			case 'set_interval':
 			var new_interval = +args[1];
 
 			if (new_interval >= 1) {
@@ -820,10 +827,10 @@ function main()
 				console.log('Trouble parsing command interval seconds, try again..');
 			}
 			break;
-      
-		default:
+
+			default:
 			console.log('Sending...', args);
-			pub.send(args);
+			//pub.send(args);
 			break;
 		}
 	});
@@ -842,8 +849,8 @@ function main()
 		var valid_op = false;
 
 		for (var i in ops)
-			if (ops[i] === message.nick)
-				valid_op = true;
+		if (ops[i] === message.nick)
+		valid_op = true;
 
 		if (message.command === 'WHISPER' && valid_op) {
 			if (message.args.length === 2) {
@@ -852,19 +859,19 @@ function main()
 				if (message.args[1].indexOf('obey_one') === 0) {
 					cmd = message.args[1].substring(9, message.args[1].length);
 
-					pub.send(['qemu-manager', exports.map[cmd]]);
+					//pub.send(['qemu-manager', exports.map[cmd]]);
 
 					twitch_group.say(grp_chan, '/w ' + message.nick + ' You have casted [' +
-						exports.map[cmd] + '] successfully.');
+					exports.map[cmd] + '] successfully.');
 
 				} else if (message.args[1].indexOf('obey_all') === 0) {
 					cmd = message.args[1].substring(9, message.args[1].length);
 
 					for (var y in cmd)
-						pub.send(['qemu-manager', exports.map[cmd[y]]]);
+					//pub.send(['qemu-manager', exports.map[cmd[y]]]);
 
 					twitch_group.say(grp_chan, '/w ' + message.nick + ' You have casted multi [' +
-						cmd + '] successfully.');
+					cmd + '] successfully.');
 				}
 			}
 		}
@@ -886,13 +893,13 @@ function main()
 			if (mouse_vote) {
 				if (!isNaN(msg)) {
 					console.log(from + ': ' + msg + ' -> ' + msg);
-					pub.send(['client-console', '> ' + from + ': ' + msg]);
+					//pub.send(['client-console', '> ' + from + ': ' + msg]);
 
 					last_tally[from.trim()] = msg;
 				}
 			} else if (voting_command) {
 				if (msg == 'yes' || msg == 'nop')
-					last_tally[from.trim()] = msg;
+				last_tally[from.trim()] = msg;
 			} else if (voting_mode) {
 				for (var i in modes) { /* jshint ignore:line */
 					if (modes[i] == msg) {
@@ -900,9 +907,9 @@ function main()
 						break;
 					}
 				}
-			} else if (exports.map[msg] !== null) {
+			} else if (!_.isUndefined(exports.map[msg])) {
 				console.log(from + ': ' + msg + ' -> ' + exports.map[msg]);
-				pub.send(['client-console', '> ' + from + ': ' + msg]);
+				//pub.send(['client-console', '> ' + from + ': ' + msg]);
 
 				last_tally[from.trim()] = msg;
 			}
