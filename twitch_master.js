@@ -15,7 +15,6 @@ crypto = require('crypto'),
 _ = require("underscore"),
 
 buttonHandler = require('./lib/buttonHandler'),
-espruino = require('./lib/espruino'),
 
 //pub = require('./lib/comm').sender(),
 config = require('./config.json'),
